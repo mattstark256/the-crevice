@@ -3,22 +3,12 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-[RequireComponent(typeof(InputModifier))]
+[RequireComponent(typeof(InputModifier), typeof(PageManager), typeof(Keypad))]
 public class Story : MonoBehaviour
 {
-    [SerializeField]
-    private TextLine textPrefab;
-    [SerializeField]
-    private Transform textParent;
-    [SerializeField]
-    private float lineSpacing = 30;
-
     InputModifier inputModifier;
-
-    Vector3 currentSpawnPoint = Vector3.zero;
-    Vector3 initialTextParentPosition;
-    Vector3 textParentTargetPosition;
-    float textMoveSpeed = 7;
+    PageManager pageManager;
+    Keypad keypad;
 
     bool keypadDoorUnlocked = false;
     bool hasTorch = false;
@@ -30,10 +20,8 @@ public class Story : MonoBehaviour
     private void Awake()
     {
         inputModifier = GetComponent<InputModifier>();
-        initialTextParentPosition = textParent.transform.localPosition;
-        textParentTargetPosition = initialTextParentPosition;
-
-        Cursor.visible = false;
+        pageManager = GetComponent<PageManager>();
+        keypad = GetComponent<Keypad>();
     }
 
 
@@ -43,26 +31,17 @@ public class Story : MonoBehaviour
         CreateText("You wake up with a throbbing headache. You're lying on the cold damp floor of a cave. The sky is visible through a crevice in the rock far above you. You realize you must have fallen down here.");
 
         StartCoroutine(InCave());
-        textParent.transform.localPosition = textParentTargetPosition;
+        pageManager.SkipToTarget();
     }
 
 
     // Update is called once per frame
-    void Update()
-    {
-        // Move text up
-        textParent.transform.localPosition = Vector3.Lerp(textParent.transform.localPosition, textParentTargetPosition, Time.deltaTime * textMoveSpeed);
-    }
+    
 
 
     TextLine CreateText(string message)
     {
-        TextLine textLine = Instantiate(textPrefab, textParent);
-        textLine.SetString(message);
-        textLine.transform.localPosition = currentSpawnPoint;
-        currentSpawnPoint += Vector3.down * (lineSpacing + textLine.GetTextHeight());
-        textParentTargetPosition = initialTextParentPosition - currentSpawnPoint;
-        return textLine;
+        return pageManager.CreateText(message);
     }
 
 
@@ -132,7 +111,10 @@ public class Story : MonoBehaviour
         }
         if (inputModifier.GetConversionIndex() == 1)
         {
-            StartCoroutine(AtKeypad());
+            keypad.Use();
+            while (keypad.IsInUse()) { yield return null; }
+            if (!keypad.IsLocked()) { keypadDoorUnlocked = true; }
+            StartCoroutine(AtDoor());
         }
         if (inputModifier.GetConversionIndex() == 2)
         {
